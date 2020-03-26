@@ -107,7 +107,7 @@ public class JSONManipulatorCurrent implements JSONManipulator{
         JsonArray rep = new JsonArray();
         final AbstractMap.SimpleEntry<ProtocolVersion, ItemStack> p = new AbstractMap.SimpleEntry<>(protocolVersion = ProtocolVersion.getVersion(protocol), item);
 
-        if ((itemTooltip = STACKS.get(p)) == null) {
+        /*if ((itemTooltip = STACKS.get(p)) == null) {
             JsonArray use = Translator.toJson(replacement); //We get the json representation of the old color formatting method
 
             JsonObject hover = PARSER.parse("{\"action\":\"show_item\", \"value\": \"\"}").getAsJsonObject(); //There's no public clone method for JSONObjects so we need to parse them every time
@@ -121,6 +121,22 @@ public class JSONManipulatorCurrent implements JSONManipulator{
             wrapper.add("hoverEvent", hover);
 
             itemTooltip = wrapper; //Save the tooltip for later use when we encounter a placeholder
+            STACKS.put(p, itemTooltip); //Save it in the cache too so when parsing other packets with the same item (and client version) we no longer have to create it again
+            Bukkit.getScheduler().runTaskLaterAsynchronously(ChatItem.getInstance(), () ->
+                    STACKS.remove(p)
+            , 100L); //We remove it later when no longer needed to save memory
+        }*/
+        if ((itemTooltip = STACKS.get(p)) == null) {
+            JsonArray use = Translator.toJson(replacement); //We get the json representation of the old color formatting method
+            CraftItemStack stack = CraftItemStack.asCraftCopy(item);
+            net.minecraft.server.v1_15_R1.ItemStack nmsStack = CraftItemStack.asNMSCopy(stack);
+            NBTTagCompound tagCompound = new NBTTagCompound();
+            nmsStack.save(tagCompound);
+            TextComponent textComponent = new TextComponent(TextComponent.fromLegacyText(ChatColor.WHITE + replacement + ChatColor.WHITE));
+            textComponent.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_ITEM, new ComponentBuilder(tagCompound.toString()).create()));
+            String jsonRep = ComponentSerializer.toString(textComponent);; //Get the JSON representation of the item (well, not really JSON, but rather a string representation of NBT data)
+            JsonObject hover = PARSER.parse(jsonRep).getAsJsonObject();
+            itemTooltip = hover; //Save the tooltip for later use when we encounter a placeholder
             STACKS.put(p, itemTooltip); //Save it in the cache too so when parsing other packets with the same item (and client version) we no longer have to create it again
             Bukkit.getScheduler().runTaskLaterAsynchronously(ChatItem.getInstance(), () ->
                     STACKS.remove(p)
